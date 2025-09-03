@@ -71,6 +71,9 @@ const TTSPlayer = () => {
       const float32Chunk = convertPCM16ToFloat32(value.buffer, start, len);
       if (float32Chunk.length === 0) continue;
 
+      const currentTime = audioCtxRef.current.currentTime;
+      console.log(`Chunk received at ${formatTimestamp(currentTime)} - Length: ${float32Chunk.length} samples`);
+
       pendingPCMRef.current.push(float32Chunk);
       pendingLenRef.current += float32Chunk.length;
 
@@ -115,7 +118,16 @@ const TTSPlayer = () => {
     const source = audioCtx.createBufferSource();
     source.buffer = buffer;
     source.connect(audioCtx.destination);
+    
+    console.log(`Playing full audio at ${formatTimestamp(audioCtx.currentTime)} - Duration: ${formatTimestamp(buffer.duration)}`);
     source.start();
+    
+    source.onended = () => {
+      console.log(`Full audio finished at ${formatTimestamp(audioCtx.currentTime)}`);
+      try {
+        source.disconnect();
+      } catch {}
+    };
   };
 
   const flushBatch = (ctx, sampleRate) => {
@@ -140,14 +152,25 @@ const TTSPlayer = () => {
     source.connect(ctx.destination);
 
     const when = Math.max(nextTimeRef.current, ctx.currentTime + 0.005);
+    console.log(`Playing chunk at ${formatTimestamp(when)} - Duration: ${formatTimestamp(buf.duration)}`);
     source.start(when);
     source.onended = () => {
+      console.log(`Chunk finished at ${formatTimestamp(ctx.currentTime)}`);
       try {
         source.disconnect();
       } catch {}
     };
 
     nextTimeRef.current = when + buf.duration;
+  };
+
+  const formatTimestamp = (timeInSeconds) => {
+    const hours = Math.floor(timeInSeconds / 3600);
+    const minutes = Math.floor((timeInSeconds % 3600) / 60);
+    const seconds = Math.floor(timeInSeconds % 60);
+    const milliseconds = Math.floor((timeInSeconds % 1) * 1000);
+    
+    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}:${milliseconds.toString().padStart(3, '0')}`;
   };
 
   const convertPCM16ToFloat32 = (buffer, byteOffset, byteLength) => {
