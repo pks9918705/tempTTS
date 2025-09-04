@@ -15,13 +15,27 @@ const TTSPlayer = () => {
     return localStorage.getItem('ttsApiUrl') || '';
   });
 
+  const [language, setLanguage] = useState(() => {
+    return localStorage.getItem('ttsLanguage') || 'en';
+  });
+
+  const [gender, setGender] = useState(() => {
+    return localStorage.getItem('ttsGender') || 'female';
+  });
+
   useEffect(() => {
     localStorage.setItem('ttsApiUrl', apiUrl);
-  }, [apiUrl]);
+    localStorage.setItem('ttsLanguage', language);
+    localStorage.setItem('ttsGender', gender);
+  }, [apiUrl, language, gender]);
 
-  const clearUrl = () => {
+  const clearSettings = () => {
     setApiUrl('');
+    setLanguage('en');
+    setGender('female');
     localStorage.removeItem('ttsApiUrl');
+    localStorage.removeItem('ttsLanguage');
+    localStorage.removeItem('ttsGender');
   };
 
   const stopAudio = () => {
@@ -202,8 +216,8 @@ const TTSPlayer = () => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           text,
-          language: "en",
-          gender: "female",
+          language,
+          gender,
         }),
       });
 
@@ -246,29 +260,63 @@ const TTSPlayer = () => {
             disabled={isPlaying}
           />
           <button
-            onClick={clearUrl}
+            onClick={clearSettings}
             disabled={isPlaying || !apiUrl}
             style={{
               padding: "8px 16px",
               cursor: isPlaying || !apiUrl ? "not-allowed" : "pointer"
             }}
           >
-            Clear URL
+            Clear Settings
           </button>
         </div>
 
-        <label style={{ marginRight: "10px" }}>
-          <input
-            type="checkbox"
-            checked={isStreamingMode}
-            onChange={(e) => setIsStreamingMode(e.target.checked)}
-            disabled={isPlaying}
-          />
-          Streaming Mode
-        </label>
-        <span style={{ fontSize: "0.9em", color: "#666" }}>
-          ({isStreamingMode ? "Play chunk by chunk" : "Play complete audio"})
-        </span>
+        <div style={{ marginBottom: "15px", display: "flex", gap: "20px", alignItems: "center" }}>
+          <div>
+            <label style={{ marginRight: "10px" }}>Language:</label>
+            <input
+              type="text"
+              value={language}
+              onChange={(e) => setLanguage(e.target.value)}
+              placeholder="Enter language code (e.g. en, hi, fr)"
+              disabled={isPlaying}
+              style={{
+                padding: "8px",
+                width: "200px"
+              }}
+            />
+          </div>
+
+          <div>
+            <label style={{ marginRight: "10px" }}>Voice Gender:</label>
+            <input
+              type="text"
+              value={gender}
+              onChange={(e) => setGender(e.target.value)}
+              placeholder="Enter gender (female/male)"
+              disabled={isPlaying}
+              style={{
+                padding: "8px",
+                width: "200px"
+              }}
+            />
+          </div>
+        </div>
+
+        <div style={{ marginBottom: "15px" }}>
+          <label style={{ marginRight: "10px" }}>
+            <input
+              type="checkbox"
+              checked={isStreamingMode}
+              onChange={(e) => setIsStreamingMode(e.target.checked)}
+              disabled={isPlaying}
+            />
+            Streaming Mode
+          </label>
+          <span style={{ fontSize: "0.9em", color: "#666" }}>
+            ({isStreamingMode ? "Play chunk by chunk" : "Play complete audio"})
+          </span>
+        </div>
       </div>
       <textarea
         rows={5}
