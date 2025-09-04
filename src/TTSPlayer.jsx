@@ -242,38 +242,91 @@ const TTSPlayer = () => {
   };
 
   return (
-    <div style={{ fontFamily: "sans-serif", padding: "20px" }}>
-      <h2>TTS Stream Player (PCM16 → Float32)</h2>
+    <div style={{ 
+      fontFamily: "'Segoe UI', system-ui, -apple-system, sans-serif",
+      padding: "30px",
+      maxWidth: "800px",
+      margin: "0 auto",
+      backgroundColor: "#f8f9fa",
+      borderRadius: "12px",
+      boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)"
+    }}>
+      <h2 style={{
+        color: "#1a73e8",
+        marginBottom: "24px",
+        fontSize: "28px",
+        fontWeight: "600"
+      }}>Text to Speech Player</h2>
 
-      <div style={{ marginBottom: "20px" }}>
-        <div style={{ marginBottom: "15px" }}>
-          <input
-            type="text"
-            value={apiUrl}
-            onChange={(e) => setApiUrl(e.target.value)}
-            placeholder="Enter TTS API URL"
-            style={{
-              padding: "8px",
-              width: "400px",
-              marginRight: "10px"
-            }}
-            disabled={isPlaying}
-          />
-          <button
-            onClick={clearSettings}
-            disabled={isPlaying || !apiUrl}
-            style={{
-              padding: "8px 16px",
-              cursor: isPlaying || !apiUrl ? "not-allowed" : "pointer"
-            }}
-          >
-            Clear Settings
-          </button>
+      <div style={{ marginBottom: "24px" }}>
+        <div style={{ 
+          marginBottom: "20px",
+          backgroundColor: "white",
+          padding: "20px",
+          borderRadius: "8px",
+          boxShadow: "0 2px 4px rgba(0, 0, 0, 0.05)"
+        }}>
+          <label style={{ 
+            display: "block", 
+            marginBottom: "8px",
+            color: "#444",
+            fontWeight: "500"
+          }}>API URL</label>
+          <div style={{ display: "flex", gap: "10px" }}>
+            <input
+              type="text"
+              value={apiUrl}
+              onChange={(e) => setApiUrl(e.target.value)}
+              placeholder="Enter TTS API URL"
+              style={{
+                padding: "10px 12px",
+                width: "100%",
+                border: "1px solid #ddd",
+                borderRadius: "6px",
+                fontSize: "14px",
+                transition: "border-color 0.2s",
+                outline: "none"
+              }}
+              disabled={isPlaying}
+            />
+            <button
+              onClick={clearSettings}
+              disabled={isPlaying || !apiUrl}
+              style={{
+                padding: "10px 16px",
+                backgroundColor: isPlaying || !apiUrl ? "#ddd" : "#dc3545",
+                color: "white",
+                border: "none",
+                borderRadius: "6px",
+                cursor: isPlaying || !apiUrl ? "not-allowed" : "pointer",
+                transition: "background-color 0.2s",
+                fontWeight: "500",
+                minWidth: "120px"
+              }}
+            >
+              Clear Settings
+            </button>
+          </div>
         </div>
 
-        <div style={{ marginBottom: "15px", display: "flex", gap: "20px", alignItems: "center" }}>
-          <div>
-            <label style={{ marginRight: "10px" }}>Language:</label>
+        <div style={{ 
+          display: "grid", 
+          gridTemplateColumns: "1fr 1fr", 
+          gap: "20px",
+          marginBottom: "20px" 
+        }}>
+          <div style={{ 
+            backgroundColor: "white",
+            padding: "20px",
+            borderRadius: "8px",
+            boxShadow: "0 2px 4px rgba(0, 0, 0, 0.05)"
+          }}>
+            <label style={{ 
+              display: "block", 
+              marginBottom: "8px",
+              color: "#444",
+              fontWeight: "500"
+            }}>Language</label>
             <input
               type="text"
               value={language}
@@ -281,14 +334,27 @@ const TTSPlayer = () => {
               placeholder="Enter language code (e.g. en, hi, fr)"
               disabled={isPlaying}
               style={{
-                padding: "8px",
-                width: "200px"
+                padding: "10px 12px",
+                width: "100%",
+                border: "1px solid #ddd",
+                borderRadius: "6px",
+                fontSize: "14px"
               }}
             />
           </div>
 
-          <div>
-            <label style={{ marginRight: "10px" }}>Voice Gender:</label>
+          <div style={{ 
+            backgroundColor: "white",
+            padding: "20px",
+            borderRadius: "8px",
+            boxShadow: "0 2px 4px rgba(0, 0, 0, 0.05)"
+          }}>
+            <label style={{ 
+              display: "block", 
+              marginBottom: "8px",
+              color: "#444",
+              fontWeight: "500"
+            }}>Voice Gender</label>
             <input
               type="text"
               value={gender}
@@ -296,48 +362,100 @@ const TTSPlayer = () => {
               placeholder="Enter gender (female/male)"
               disabled={isPlaying}
               style={{
-                padding: "8px",
-                width: "200px"
+                padding: "10px 12px",
+                width: "100%",
+                border: "1px solid #ddd",
+                borderRadius: "6px",
+                fontSize: "14px"
               }}
             />
           </div>
         </div>
 
-        <div style={{ marginBottom: "15px" }}>
-          <label style={{ marginRight: "10px" }}>
+        <div style={{ 
+          backgroundColor: "white",
+          padding: "20px",
+          borderRadius: "8px",
+          boxShadow: "0 2px 4px rgba(0, 0, 0, 0.05)",
+          marginBottom: "20px"
+        }}>
+          <label style={{ 
+            display: "flex",
+            alignItems: "center",
+            gap: "8px",
+            color: "#444",
+            fontWeight: "500"
+          }}>
             <input
               type="checkbox"
               checked={isStreamingMode}
               onChange={(e) => setIsStreamingMode(e.target.checked)}
               disabled={isPlaying}
+              style={{
+                width: "16px",
+                height: "16px"
+              }}
             />
             Streaming Mode
+            <span style={{ 
+              fontSize: "14px",
+              color: "#666",
+              fontWeight: "normal"
+            }}>
+              ({isStreamingMode ? "Play chunk by chunk" : "Play complete audio"})
+            </span>
           </label>
-          <span style={{ fontSize: "0.9em", color: "#666" }}>
-            ({isStreamingMode ? "Play chunk by chunk" : "Play complete audio"})
-          </span>
+        </div>
+
+        <div style={{ 
+          backgroundColor: "white",
+          padding: "20px",
+          borderRadius: "8px",
+          boxShadow: "0 2px 4px rgba(0, 0, 0, 0.05)"
+        }}>
+          <label style={{ 
+            display: "block", 
+            marginBottom: "8px",
+            color: "#444",
+            fontWeight: "500"
+          }}>Text to Convert</label>
+          <textarea
+            rows={5}
+            placeholder="Paste your text here..."
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            disabled={isPlaying}
+            style={{
+              padding: "12px",
+              width: "100%",
+              border: "1px solid #ddd",
+              borderRadius: "6px",
+              fontSize: "14px",
+              resize: "vertical",
+              minHeight: "120px",
+              fontFamily: "inherit"
+            }}
+          />
         </div>
       </div>
-      <textarea
-        rows={5}
-        cols={60}
-        placeholder="Paste your text here..."
-        value={text}
-        onChange={(e) => setText(e.target.value)}
-        disabled={isPlaying}
-      />
-      <br />
+
       <button
         onClick={playAudio}
         disabled={isPlaying || !apiUrl}
         style={{
-          marginTop: "10px",
-          padding: "8px 16px",
-          fontSize: "16px",
+          padding: "12px 24px",
+          backgroundColor: isPlaying || !apiUrl ? "#ddd" : "#1a73e8",
+          color: "white",
+          border: "none",
+          borderRadius: "6px",
           cursor: (isPlaying || !apiUrl) ? "not-allowed" : "pointer",
+          fontSize: "16px",
+          fontWeight: "500",
+          transition: "background-color 0.2s",
+          width: "100%"
         }}
       >
-        {isPlaying ? "Playing..." : "Play"}
+        {isPlaying ? "Playing..." : "Convert to Speech"}
       </button>
     </div>
   );
