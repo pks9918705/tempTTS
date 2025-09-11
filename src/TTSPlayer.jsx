@@ -6,11 +6,6 @@ const TTSPlayer = () => {
   const [isStreamingMode, setIsStreamingMode] = useState(true);
   const SAMPLE_RATE_DEFAULT = 44100;
 
-  // Buffering config
-  const MIN_PRIMING_SEC = 2; // start only if at least 2s of audio available
-  const SAFE_BUFFER_SEC = 1; // always keep 1s ahead buffered
-  const BATCH_SEC = 0.25; // batch size = 250ms
-
   // Refs
   const audioCtxRef = { current: null };
   const nextTimeRef = { current: 0 };
@@ -195,8 +190,6 @@ const TTSPlayer = () => {
     const reader = response.body.getReader();
     const headerSampleRate = audioCtxRef.current.sampleRate;
 
-    let sampleRemainder = 0;
-    let primed = false;
 
     const TARGET_SEC = 2.0; // flush every 2 sec
     let collectedSec = 0;
