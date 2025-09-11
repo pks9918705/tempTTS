@@ -5,11 +5,13 @@ const TTSPlayer = () => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [isStreamingMode, setIsStreamingMode] = useState(true);
   const SAMPLE_RATE_DEFAULT = 44100;
-  const TARGET_BATCH_SEC = 0.5;
-  // Constants, assumes mono PCM16 data
 
-  const HEADER_SIZE = 44;
+  // Buffering config
+  const MIN_PRIMING_SEC = 2; // start only if at least 2s of audio available
+  const SAFE_BUFFER_SEC = 1; // always keep 1s ahead buffered
+  const BATCH_SEC = 0.25; // batch size = 250ms
 
+  // Refs
   const audioCtxRef = { current: null };
   const nextTimeRef = { current: 0 };
   const pendingPCMRef = { current: [] };
@@ -61,6 +63,120 @@ const TTSPlayer = () => {
     setIsPlaying(false);
   };
 
+  // const playStreamingAudio = async (response) => {
+  //   if (!audioCtxRef.current) {
+  //     const headerSampleRate =
+  //       Number(response.headers.get("X-Audio-Sample-Rate")) ||
+  //       SAMPLE_RATE_DEFAULT;
+
+  //     audioCtxRef.current = new (window.AudioContext ||
+  //       window.webkitAudioContext)({
+  //       latencyHint: "interactive",
+  //       sampleRate: headerSampleRate,
+  //     });
+
+  //     const primingLead = Math.max(
+  //       0.05,
+  //       audioCtxRef.current.baseLatency || 0.05
+  //     );
+  //     nextTimeRef.current = audioCtxRef.current.currentTime + primingLead;
+  //   }
+
+  //   const reader = response.body.getReader();
+  //   const headerSampleRate = audioCtxRef.current.sampleRate;
+
+  //   let sampleRemainder = 0;
+  //   let lastChunkTime = performance.now();
+
+  //   while (true) {
+  //     const { done, value } = await reader.read();
+  //     if (done) break;
+  //     if (!value || value.byteLength === 0) continue;
+
+  //     // measure time gap between this chunk and the previous one
+  //     const now = performance.now();
+  //     const gap = now - lastChunkTime;
+  //     console.log(`[Chunk] Gap since last chunk: ${gap.toFixed(2)} ms`);
+  //     lastChunkTime = now;
+
+  //     let chunk = value;
+
+  //     if (carryByteRef.current !== null) {
+  //       const merged = new Uint8Array(1 + chunk.byteLength);
+  //       merged[0] = carryByteRef.current;
+  //       merged.set(chunk, 1);
+  //       chunk = merged;
+  //       carryByteRef.current = null;
+  //     }
+
+  //     let startOffset = 0;
+  //     let byteLength = chunk.byteLength;
+
+  //     if (!headerSkippedRef.current) {
+  //       if (byteLength >= 12) {
+  //         const riff = new TextDecoder().decode(chunk.slice(0, 4));
+  //         const wave = new TextDecoder().decode(chunk.slice(8, 12));
+  //         if (riff === "RIFF" && wave === "WAVE") {
+  //           if (byteLength >= HEADER_SIZE) {
+  //             startOffset += HEADER_SIZE;
+  //             byteLength -= HEADER_SIZE;
+  //             headerSkippedRef.current = true;
+  //           } else {
+  //             headerRemainingRef.current = HEADER_SIZE - byteLength;
+  //             continue;
+  //           }
+  //         } else {
+  //           headerSkippedRef.current = true;
+  //         }
+  //       } else {
+  //         continue;
+  //       }
+  //     } else if (headerRemainingRef.current > 0) {
+  //       if (byteLength > headerRemainingRef.current) {
+  //         startOffset += headerRemainingRef.current;
+  //         byteLength -= headerRemainingRef.current;
+  //         headerRemainingRef.current = 0;
+  //         headerSkippedRef.current = true;
+  //       } else {
+  //         headerRemainingRef.current -= byteLength;
+  //         continue;
+  //       }
+  //     }
+
+  //     if (byteLength <= 0) continue;
+
+  //     if ((byteLength & 1) === 1) {
+  //       carryByteRef.current = chunk[startOffset + byteLength - 1];
+  //       byteLength -= 1;
+  //     }
+  //     if (byteLength <= 0) continue;
+
+  //     const float32Chunk = convertPCM16ToFloat32(
+  //       chunk.buffer,
+  //       chunk.byteOffset + startOffset,
+  //       byteLength
+  //     );
+  //     if (float32Chunk.length === 0) continue;
+
+  //     // Push into pending buffer
+  //     pendingPCMRef.current.push(float32Chunk);
+  //     pendingLenRef.current += float32Chunk.length;
+
+  //     // Calculate exact batch size with remainder handling
+  //     let exactSamples = headerSampleRate * TARGET_BATCH_SEC + sampleRemainder;
+  //     const samplesPerBatch = Math.floor(exactSamples);
+  //     sampleRemainder = exactSamples - samplesPerBatch;
+
+  //     if (pendingLenRef.current >= samplesPerBatch) {
+  //       flushBatch(audioCtxRef.current, headerSampleRate, samplesPerBatch);
+  //     }
+  //   }
+
+  //   // Flush any remaining audio at the end
+  //   flushBatch(audioCtxRef.current, headerSampleRate, pendingLenRef.current);
+  // };
+
+  // Main streaming audio handler
   const playStreamingAudio = async (response) => {
     if (!audioCtxRef.current) {
       const headerSampleRate =
@@ -73,106 +189,70 @@ const TTSPlayer = () => {
         sampleRate: headerSampleRate,
       });
 
-      const primingLead = Math.max(
-        0.05,
-        audioCtxRef.current.baseLatency || 0.05
-      );
-      nextTimeRef.current = audioCtxRef.current.currentTime + primingLead;
+      nextTimeRef.current = 0; // scheduling will start after priming
     }
 
     const reader = response.body.getReader();
     const headerSampleRate = audioCtxRef.current.sampleRate;
 
     let sampleRemainder = 0;
-    let lastChunkTime = performance.now(); 
+    let primed = false;
 
+    const TARGET_SEC = 2.0; // flush every 2 sec
+    let collectedSec = 0;
+    
     while (true) {
       const { done, value } = await reader.read();
       if (done) break;
       if (!value || value.byteLength === 0) continue;
-
-      // measure time gap between this chunk and the previous one
-      const now = performance.now();
-      const gap = now - lastChunkTime;
-      console.log(`[Chunk] Gap since last chunk: ${gap.toFixed(2)} ms`);
-      lastChunkTime = now;
-
+    
       let chunk = value;
-
-      if (carryByteRef.current !== null) {
-        const merged = new Uint8Array(1 + chunk.byteLength);
-        merged[0] = carryByteRef.current;
-        merged.set(chunk, 1);
-        chunk = merged;
-        carryByteRef.current = null;
-      }
-
+      // carry byte handling (same as your code) ...
+    
       let startOffset = 0;
       let byteLength = chunk.byteLength;
-
-      if (!headerSkippedRef.current) {
-        if (byteLength >= 12) {
-          const riff = new TextDecoder().decode(chunk.slice(0, 4));
-          const wave = new TextDecoder().decode(chunk.slice(8, 12));
-          if (riff === "RIFF" && wave === "WAVE") {
-            if (byteLength >= HEADER_SIZE) {
-              startOffset += HEADER_SIZE;
-              byteLength -= HEADER_SIZE;
-              headerSkippedRef.current = true;
-            } else {
-              headerRemainingRef.current = HEADER_SIZE - byteLength;
-              continue;
-            }
-          } else {
-            headerSkippedRef.current = true;
-          }
-        } else {
-          continue;
-        }
-      } else if (headerRemainingRef.current > 0) {
-        if (byteLength > headerRemainingRef.current) {
-          startOffset += headerRemainingRef.current;
-          byteLength -= headerRemainingRef.current;
-          headerRemainingRef.current = 0;
-          headerSkippedRef.current = true;
-        } else {
-          headerRemainingRef.current -= byteLength;
-          continue;
-        }
-      }
-
-      if (byteLength <= 0) continue;
-
+    
+      // WAV header skipping (same as your code) ...
+    
       if ((byteLength & 1) === 1) {
         carryByteRef.current = chunk[startOffset + byteLength - 1];
         byteLength -= 1;
       }
       if (byteLength <= 0) continue;
-
+    
       const float32Chunk = convertPCM16ToFloat32(
         chunk.buffer,
         chunk.byteOffset + startOffset,
         byteLength
       );
       if (float32Chunk.length === 0) continue;
-
+    
       // Push into pending buffer
       pendingPCMRef.current.push(float32Chunk);
       pendingLenRef.current += float32Chunk.length;
-
-      // Calculate exact batch size with remainder handling
-      let exactSamples = headerSampleRate * TARGET_BATCH_SEC + sampleRemainder;
-      const samplesPerBatch = Math.floor(exactSamples);
-      sampleRemainder = exactSamples - samplesPerBatch;
-
-      if (pendingLenRef.current >= samplesPerBatch) {
-        flushBatch(audioCtxRef.current, headerSampleRate, samplesPerBatch);
+    
+      // Calculate duration for this chunk
+      const chunkDuration = float32Chunk.length / headerSampleRate;
+      collectedSec += chunkDuration;
+    
+      console.log(
+        `📦 Added chunk: ${chunkDuration.toFixed(3)}s, Collected: ${collectedSec.toFixed(3)}s`
+      );
+    
+      // Flush every 2 seconds of audio
+      if (collectedSec >= TARGET_SEC) {
+        const samplesToFlush = Math.floor(headerSampleRate * TARGET_SEC);
+        flushBatch(audioCtxRef.current, headerSampleRate, samplesToFlush);
+        collectedSec = 0; // reset counter after flush
       }
     }
+    
+    // Final flush for leftovers
+    if (pendingLenRef.current > 0) {
+      flushBatch(audioCtxRef.current, headerSampleRate, pendingLenRef.current);
+    }
+  }    
 
-    // Flush any remaining audio at the end
-    flushBatch(audioCtxRef.current, headerSampleRate, pendingLenRef.current);
-  };
   const playFullAudio = async (response) => {
     const reader = response.body.getReader();
     const chunks = [];
@@ -236,6 +316,8 @@ const TTSPlayer = () => {
     //   sampleRate,
     //   samplesToConsume
     // })
+    // print the current time in seconds 
+    console.log("🔈AUDIO PLAY", ctx.currentTime)
     if (!samplesToConsume || pendingLenRef.current < samplesToConsume) return;
 
     const out = new Float32Array(samplesToConsume);
@@ -267,7 +349,7 @@ const TTSPlayer = () => {
     source.connect(ctx.destination);
 
     // Schedule with small safety margin
-    const when = Math.max(nextTimeRef.current, ctx.currentTime );
+    const when = Math.max(nextTimeRef.current, ctx.currentTime);
     source.start(when);
 
     source.onended = () => {
